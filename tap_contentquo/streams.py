@@ -1,4 +1,4 @@
-"""Stream class for tap-template."""
+"""Stream class for tap-contentquo."""
 
 import base64
 import json
@@ -14,10 +14,11 @@ import requests
 
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
-class TapTemplateStream(RESTStream):
-    """Template stream class."""
-    
+
+class TapContentQuoStream(RESTStream):
+
     _LOG_REQUEST_METRIC_URLS: bool = True
+
     @property
     def url_base(self) -> str:
         """Base URL of source"""
@@ -36,9 +37,12 @@ class TapTemplateStream(RESTStream):
         http_headers = {}
 
         # If only api_token is provided, use "Basic 123456789abcdefghijklmnopqrstuv" authentication
-        if self.config.get("api_token") and not self.config.get("api_key") and not self.config.get("app_key"):
-            http_headers["Authorization"] = "Basic " +  self.config.get("api_token")
-
+        if (
+            self.config.get("api_token")
+            and not self.config.get("api_key")
+            and not self.config.get("app_key")
+        ):
+            http_headers["Authorization"] = "Basic " + self.config.get("api_token")
 
         # If api and app keys are provided, and POST required:
         if self.config.get("api_key") and self.config.get("app_key"):
@@ -47,13 +51,14 @@ class TapTemplateStream(RESTStream):
 
         return SimpleAuthenticator(stream=self, auth_headers=http_headers)
 
-class Events(TapTemplateStream):
-    name = "events" # Stream name 
-    path = "/api/v2/logs/events/search" # API endpoint after base_url 
+
+class Events(TapContentQuoStream):
+    name = "events"  # Stream name
+    path = "/api/v2/logs/events/search"  # API endpoint after base_url
     primary_keys = ["id"]
-    records_jsonpath = "$.data[*]" # https://jsonpath.com Use requests response json to identify the json path 
+    records_jsonpath = "$.data[*]"  # https://jsonpath.com Use requests response json to identify the json path
     replication_key = None
-    #schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/ 
+    # schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/
 
     # Optional: If using schema_filepath, remove the propertyList schema method below
     schema = th.PropertiesList(
@@ -67,20 +72,22 @@ class Events(TapTemplateStream):
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Optional[dict]:
         """Define request parameters to return"""
-        payload = {"filter": {"query": "source:degreed.api env:production","from": self.config.get("start_date")},"page": {"limit": 4}}
+        payload = {
+            "filter": {
+                "query": "source:degreed.api env:production",
+                "from": self.config.get("start_date"),
+            },
+            "page": {"limit": 4},
+        }
         return payload
 
-    # For passing url parameters: 
+    # For passing url parameters:
     # def get_url_params(
     #     self, context: Optional[dict], next_page_token: Optional[Any]
     # ) -> Dict[str, Any]:
 
 
-
-
-
-
-### Template to use for new stream 
+### Template to use for new stream
 # class TemplateStream(RESTStream):
 #     """Template stream class."""
 

@@ -1,178 +1,226 @@
-# `tap-template`
-This tap template was created by Degreed as a template to be used for extracting data via Meltano into defined targets
+# tap-contentquo
+
+`tap-contentquo` is a Singer tap for ContentQuo. It extracts data from ContentQuo. It leverages the ContentQuo API to pull data into your data warehouse or data lake.
+
+Built with the [Meltano Tap SDK](https://sdk.meltano.com) for Singer Taps.
 
 
-## tap-template
+## Installation
 
-These are the steps required for using this repo as a 'template' for a Meltano extractor. Note: we will use tap-datadog as the example throughout the process.
+### 1. Adding Tap-ContentQuo to an Existing Meltano Project
 
-1.  Being aware of case sensitivity, replace the following throughout the repo:
+To add the `tap-contentquo` to an existing Meltano project, follow these steps:
 
-* `tap-template` >`tap-datadog` 
-* `tap_template` > `tap_datadog`
-* `TapTemplateStream` > `TapDatadogStream` (inside `streams.py`)
+1. **Navigate to your Meltano project directory**:
+  Open your terminal and change to the directory of your Meltano project.
+  
+   ```bash 
+    cd your-meltano-project
+   ```
 
-2. Update the following folders/files to:
-* `tap_template` > `tap_datadog`
-* `tap-template.sh` > `tap-datadog.sh`
+2. **Add the Tap-ContentQuo extractor**:
+   Use the `meltano add` command to add `tap-contentquo` to your project.
+   
+   ```bash
+   meltano add extractor tap-contentquo
+   ```
 
-3. Inside `streams.py` update TapTemplateStream with the authentication used for the tap-datadog api calls.  Note: all streams in streams.py work as a heirarchy further down. i.e. you can replace the http headers in another stream
+   or update your `meltano.yml` file with below configuration
+   ```yaml
+   plugins:
+      extractors:
+        - name: tap-contentquo
+          namespace: tap_contentquo
+          pip_url: git+https://github.com/degreed-data-engineering/tap-contentquo
+          config:
+            key: <key for ContentQuo API service>
+            secret: <secret for the ContentQuo API service>
+            base_url: <base url for the ContentQuo API service>
+   ```
 
-4. Using `Events(TapTemplateStream)` as an example, build your first stream to be synced. There are comments to help identify what values to use 
+3. **Configure the Tap-ContentQuo extractor**:
+   After adding the extractor, you need to configure it. You can do this interactively by running:
+   
+   ```bash
+    meltano config tap-contentquo set --interactive
+   ```
+   Or, you can set the config environment variable in your .env file. For example:
+   ```bash
+    TAP_CONTENTQUO_KEY="your_key_here"
+    TAP_CONTENTQUO_SECRET="your_secret_here"
+    TAP_CONTENTQUO_API_BASE_URL="base_url"
+   ```
 
-For setting the `records_jsonpath` value in the stream, you can use a tool likle postman to make a sample call and view the response json.  After identifying what keys and values you need to extract, you will need to narrow down the json path. This is a helpful site that you can paste the response text in and help locate the correct path to use.  In this example, we want to only extract the `id` and `type` values inside `data`:
+4. **Test the Tap-ContentQuo extractor configuration**:
+   To ensure everything is configured correctly, test the configuration using:
+   
+   ```bash
+    meltano config tap-contentquo test
+   ```
 
-```json
-{
-    "meta": {
-        "page": {
-            "after": "293048209rudjkfjdsf"
-        }
-    },
-    "data": [
-        {
-            "type": "error",
-            "id": "234234324324234"
-        },
-        {
-            "type": "log",
-            "id": "2342123123"
-        },
-        {
-            "type": "log",
-            "id": "09823044ugkdf"
-        }
-    ],
-    "links": {
-        "next": "https://api.datadoghq.com/api/v2/logs/events?..."
-    }
-}
+5. **Run the Extractor**:
+   Finally, run the extractor to start pulling data from ContentQuo into your Meltano project. You can specify the target loader in the command. For example, if you're using `target-jsonl` as your loader:
+
+   ```bash
+    meltano run tap-contentquo target-jsonl
+   ```
+
+By following these steps, you will have successfully added `tap-contentquo` to your existing Meltano project, configured it with your ContentQuo API key, and started extracting data.
+
+### 2. Install from GitHub:
+
+```bash
+pipx install git+https://github.com/degreed-data-engineering/tap-contentquo.git
 ```
 
-Using the link above and entering the value $.data[*], the correct fields are now displaying, confirming that is the correct path:
+## Configuration
 
-```json
-[
-  {
-    "type": "error",
-    "id": "234234324324234"
-  },
-  {
-    "type": "log",
-    "id": "2342123123"
-  },
-  {
-    "type": "log",
-    "id": "09823044ugkdf"
-  }
-]
+### Accepted Config Options
+
+`tap-contentquo` requires an access token to connect and authenticate with the ContentQuo APIs. This is a mandatory configurations. 
+
+  - `key`: This is your ContentQuo key. 
+  - `secret`: This is your ContentQuo secret. 
+
+Other configurations are
+  - `api_base_url`: Base url for the ContentQuo API service.
+
+You can set this API key in your environment variables:
+
+```bash
+export TAP_CONTENTQUO_KEY=your_key_here
+export TAP_CONTENTQUO_SECRET=your_secret_here
+export TAP_CONTENTQUO_API_BASE_URL="base_url"
+``` 
+
+Alternatively, you can create a .env file in your project directory and add the following line:
+
+```bash
+TAP_CONTENTQUO_KEY="your_key_here"
+TAP_CONTENTQUO_SECRET="your_secret_here"
+TAP_CONTENTQUO_API_BASE_URL="base_url"
 ```
 
-For the schema, you can create the .json file and place it in the schemas/ folder, or you can create the schema on the fly using the eample in the Events stream
+### Configure using environment variables
 
-- **Option 1:** Adding the `events.json` file to the schemas/ folder:
-```json
-{
-        "type": "object",
-        "properties": {
-                "id": {
-                        "type": "string"
-                },
-                "type": {
-                        "type": "string"
-                }
-        }
-}
+This Singer tap will automatically import any environment variables within the working directory's
+`.env` if the `--config=ENV` is provided, such that config values will be considered if a matching
+environment variable is set either in the terminal context or in the `.env` file.
+
+### Accepted Config Options
+
+A full list of supported settings and capabilities for this tap is available by running:
+
+```bash
+tap-contentquo --about
+```
+Pre-Requisite tor run above command
+
+1. Install the Tap ContentQuo: If you haven't already installed the `tap-contentquo`, you need to do so. The installation method can vary depending on whether `tap-contentquo` is a standalone tool or part of a larger framework. If it's a Python package, you might use pip to install it: 
+
+```bash
+  pipx install git+https://github.com/degreed-data-engineering/tap-contentquo.git
+  ```
+
+<!-- ### Source Authentication and Authorization -->
+<!--
+Developer TODO: If your tap requires special access on the source system, or any special authentication requirements, provide those here.
+-->
+
+## Usage
+
+You can easily run `tap-contentquo` by itself or in a pipeline using [Meltano](https://meltano.com/).
+
+### Executing the Tap Directly
+
+```bash
+tap-contentquo --version
+tap-contentquo --help
+tap-contentquo --config CONFIG --discover > ./catalog.json
 ```
 
-- **Option 2:** Defining schema using hte PropertiesList in the stream `class`: 
-```python
-schema = th.PropertiesList(
-        th.Property("id", th.NumberType),
-        th.Property("name", th.StringType),
-    ).to_dict()
+### Executing the Tap Within A Meltano Project
+
+Use the `meltano config` command to list the settings your extractor supports:
+
+```bash
+meltano config tap-contentquo list
+```
+To set the appropriate values for each setting using the `meltano config` command:
+
+```bash
+meltano config tap-contentquo set <setting> <value>
+```
+or 
+
+```bash
+meltano config tap-contentquo set --interactive
 ```
 
-5. In `tap.py` add each stream added in `streams.py` to `STREAM_TYPES` and define the configuration required:
+If you encounter issues or need to verify the configuration, you can use the meltano config command to test the extractor settings:
 
-```python
-    config_jsonschema = th.PropertiesList(
-        th.Property("api_token", th.StringType, required=False, description="api token for Basic auth"),
-        th.Property("start_date", th.StringType, required=False, description="start date for sync"),
-    ).to_dict()
+```bash
+meltano config tap-contentquo test
 ```
 
-6. After updating those components and confirming all references to `template` or `Template` have been updated, you can test the tap locally.
 
-## Testing locally
+## Developer Resources
 
-To test locally, pipx poetry
+Follow these instructions to contribute to this project.
+
+### Initialize your Development Environment
+
 ```bash
 pipx install poetry
-```
-
-Install poetry for the package
-```bash
 poetry install
 ```
 
-To confirm everything is setup properly, run the following: 
+### Create and Run Tests
+
+Create tests within the `tests` subfolder and
+  then run:
+
 ```bash
-poetry run tap-template --help
+poetry run pytest
 ```
 
-To run the tap locally outside of Meltano and view the response in a text file, run the following: 
+You can also test the `tap-contentquo` CLI interface directly using `poetry run`:
+
 ```bash
-poetry run tap-template > output.txt 
+poetry run tap-contentquo --help
 ```
 
-A full list of supported settings and capabilities is available by running: `tap-template --about`
+### Testing with [Meltano](https://www.meltano.com)
 
-## Config Guide
+_**Note:** This tap will work in any Singer environment and does not require Meltano.
+Examples here are for convenience and to streamline end-to-end orchestration scenarios._
 
-To test locally, create a `config.json` with required config values in your tap_template folder (i.e. `tap_template/config.json`)
+<!--
+Developer TODO:
+Your project comes with a custom `meltano.yml` project file already created. Open the `meltano.yml` and follow any "TODO" items listed in
+the file.
+-->
 
-```json
-{
-  "api_key": "$DD_API_KEY",
-  "app_key": "$DD_APP_KEY",
-  "start_date": "2022-10-05T00:00:00Z"
-}
+Next, install Meltano (if you haven't already) and any needed plugins:
+
+```bash
+# Install meltano
+pipx install meltano
+# Initialize meltano within this directory
+cd tap-contentquo
+meltano install
 ```
 
-**note**: It is critical that you delete the config.json before pushing to github.  You do not want to expose an api key or token 
-### Add to Meltano 
+Now you can test and orchestrate using Meltano:
 
-The provided `meltano.yml` provides the correct setup for the tap to be installed in the data-houston repo.  
+```bash
+# Test invocation:
+meltano invoke tap-contentquo --version
+# OR run a test `elt` pipeline:
+meltano elt tap-contentquo target-jsonl
+```
 
-At this point you should move all your updated tap files into its own tap-datadog github repo. You also want to make sure you update in the `setup.py` the `url` of the repo for you tap.
+### SDK Dev Guide
 
-Update the following in meltano within the data-houston repo with the new tap-datadog credentials/configuration.
-
-```yml
-plugins:
-  extractors:
-  - name: tap-datadog
-    namespace: tap_datadog
-    pip_url: git+https://github.com/degreed-data-engineering/tap-datadog
-    capabilities:
-    - state
-    - catalog
-    - discover
-    config:
-      api_key: $DD_API_KEY
-      app_key: $DD_APP_KEY
-      start_date: '2022-10-05T00:00:00Z'
- ```
-
-To test in data-houston, run the following:
-1. `make meltano` - spins up meltano
-2. `meltano install extractor tap-datadog` - installs the tap
-3. `meltano invoke tap-datadog --discover > catalog.json` - tests the catalog/discovery
-3. `meltano invoke tap-datadog > output.txt` - runs tap with .txt output in `meltano/degreed/`
-
-That should be it! Feel free to contribute to the tap to help add functionality for any future sources
-## Singer SDK Dev Guide
-
-See the [dev guide](https://sdk.meltano.com/en/latest/index.html) for more instructions on how to use the Singer SDK to 
+See the [dev guide](https://sdk.meltano.com/en/latest/dev_guide.html) for more instructions on how to use the SDK to
 develop your own taps and targets.
