@@ -8,11 +8,26 @@ from singer_sdk import typing as th
 from tap_contentquo.streams import (
     Evaluations,
     EvaluationDetails,
+    # QualityProfiles,
+    EvaluationIssues,
+    EvaluationMetadata,
+    EvaluationMetrics,
+    Users,
+    UserDetails,
 )
 
 PLUGIN_NAME = "tap-contentquo"
 
-STREAM_TYPES = [Evaluations, EvaluationDetails]
+STREAM_TYPES = [
+    Evaluations,
+    EvaluationDetails,
+    # QualityProfiles,
+    EvaluationIssues,
+    EvaluationMetadata,
+    EvaluationMetrics,
+    Users,
+    UserDetails,
+]
 
 
 class TapContentQuo(Tap):
