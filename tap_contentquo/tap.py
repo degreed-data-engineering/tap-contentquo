@@ -33,7 +33,9 @@ STREAM_TYPES = [
 class TapContentQuo(Tap):
     name = "tap-contentquo"
     config_jsonschema = th.PropertiesList(
-        th.Property("api_url", th.StringType, required=True, description="API URL"),
+        th.Property(
+            "api_base_url", th.StringType, required=True, description="API Base URL"
+        ),
         th.Property("key", th.StringType, required=True, description="Key"),
         th.Property("secret", th.StringType, required=True, description="Secret"),
     ).to_dict()
