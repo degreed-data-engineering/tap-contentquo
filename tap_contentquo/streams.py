@@ -1,14 +1,11 @@
-import base64
 import json
 from typing import Dict, Optional, Any, Iterable
 from pathlib import Path
 from singer_sdk import typing as th
-from functools import cached_property
 from singer_sdk.streams import RESTStream
 from singer_sdk.authenticators import SimpleAuthenticator
 from singer_sdk.exceptions import FatalAPIError
 import requests
-from datetime import datetime, timedelta
 
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
@@ -17,7 +14,7 @@ class TapContentQuoStream(RESTStream):
     """ContentQuo stream class."""
 
     _LOG_REQUEST_METRIC_URLS: bool = True
-    token_expiry_time = datetime.min
+    token = None
 
     @property
     def url_base(self) -> str:
@@ -30,37 +27,35 @@ class TapContentQuoStream(RESTStream):
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "X-Auth-Token": self.get_token(),
         }
         return headers
 
-    @property
-    def authenticator(self):
-        if datetime.now() >= self.token_expiry_time:
-            auth_url = f"{self.url_base}/auth/authenticate"
-            auth_payload = {
-                "key": self.config.get("api_key"),
-                "secret": self.config.get("api_secret"),
-            }
+    def authenticate(self):
+        """Authenticate and retrieve a new token."""
+        auth_url = f"{self.url_base}/auth/authenticate"
+        auth_payload = {
+            "key": self.config.get("key"),
+            "secret": self.config.get("secret"),
+        }
 
-            response = requests.post(auth_url, json=auth_payload)
-            if response.status_code == 200:
-                token = response.json().get("token")
-                self.token_expiry_time = (
-                    datetime.now() + timedelta(minutes=30) - timedelta(minutes=5)
-                )  # Re-authenticate 5 minutes before expiry
-                auth_headers = {"X-Auth-Token": token}
-                self._authenticator = SimpleAuthenticator(
-                    stream=self, auth_headers=auth_headers
-                )
-            else:
-                raise Exception(
-                    f"Failed to authenticate. Status code: {response.status_code}"
-                )
-        return self._authenticator
+        response = requests.post(auth_url, json=auth_payload)
+        if response.status_code == 200:
+            self.token = response.json().get("token")
+        else:
+            raise Exception(
+                f"Failed to authenticate. Status code: {response.status_code}. Response: {response.text}"
+            )
+
+    def get_token(self) -> str:
+        """Get the current token, authenticate if necessary."""
+        if not self.token:
+            self.authenticate()
+        return self.token
 
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
-        """Request records for the stream, re-authenticating if necessary."""
-        self.authenticator  # Ensure re-authentication if needed
+        """Request records for the stream, ensuring valid authentication."""
+        self.get_token()  # Ensure valid token before making requests
         try:
             yield from super().request_records(context)
         except FatalAPIError as e:
@@ -231,6 +226,25 @@ class EvaluationIssues(TapContentQuoStream):
         return row
 
 
+class EvaluationMetadata(TapContentQuoStream):
+    name = "evaluation_metadata"
+    parent_stream_type = Evaluations
+    path = "/evaluations/{eid}/metadata"
+    primary_keys = ["id"]
+    records_jsonpath = "$.metadata[*]"
+    replication_key = None
+
+    schema = th.PropertiesList(
+        th.Property("id", th.StringType),
+        th.Property("key", th.StringType),
+        th.Property("value", th.StringType),
+    ).to_dict()
+
+    def post_process(self, row: dict, context: Optional[dict]) -> dict:
+        row["eid"] = context["eid"]
+        return row
+
+
 class EvaluationMetrics(TapContentQuoStream):
     name = "evaluation_metrics"
     parent_stream_type = Evaluations
@@ -248,6 +262,22 @@ class EvaluationMetrics(TapContentQuoStream):
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
         row["eid"] = context["eid"]
         return row
+
+
+class QualityProfiles(TapContentQuoStream):
+    name = "quality_profiles"
+    path = "/qualityProfiles"
+    primary_keys = ["id"]
+    records_jsonpath = "$.qualityProfiles[*]"
+    replication_key = None
+
+    schema = th.PropertiesList(
+        th.Property("id", th.StringType),
+        th.Property("name", th.StringType),
+        th.Property("description", th.StringType),
+        th.Property("createdDate", th.StringType),
+        th.Property("lastUpdatedDate", th.StringType),
+    ).to_dict()
 
 
 class Users(TapContentQuoStream):
