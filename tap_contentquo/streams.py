@@ -211,22 +211,6 @@ class EvaluationDetails(TapContentQuoStream):
         return row
 
 
-class QualityProfiles(TapContentQuoStream):
-    name = "quality_profiles"
-    path = "/qualityProfiles"
-    primary_keys = ["id"]
-    records_jsonpath = "$.qualityProfiles[*]"
-    replication_key = None
-
-    schema = th.PropertiesList(
-        th.Property("id", th.StringType),
-        th.Property("name", th.StringType),
-        th.Property("description", th.StringType),
-        th.Property("createdDate", th.StringType),
-        th.Property("lastUpdatedDate", th.StringType),
-    ).to_dict()
-
-
 class EvaluationIssues(TapContentQuoStream):
     name = "evaluation_issues"
     parent_stream_type = Evaluations
@@ -240,25 +224,6 @@ class EvaluationIssues(TapContentQuoStream):
         th.Property("issueType", th.StringType),
         th.Property("description", th.StringType),
         th.Property("createdDate", th.StringType),
-    ).to_dict()
-
-    def post_process(self, row: dict, context: Optional[dict]) -> dict:
-        row["eid"] = context["eid"]
-        return row
-
-
-class EvaluationMetadata(TapContentQuoStream):
-    name = "evaluation_metadata"
-    parent_stream_type = Evaluations
-    path = "/evaluations/{eid}/metadata"
-    primary_keys = ["id"]
-    records_jsonpath = "$.metadata[*]"
-    replication_key = None
-
-    schema = th.PropertiesList(
-        th.Property("id", th.StringType),
-        th.Property("key", th.StringType),
-        th.Property("value", th.StringType),
     ).to_dict()
 
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
