@@ -76,13 +76,31 @@ class Evaluations(TapContentQuoStream):
 
     schema = th.PropertiesList(
         th.Property("analyticalIssueCount", th.IntegerType),
-        th.Property("eid", th.StringType),
-        th.Property("name", th.StringType),
+        th.Property(
+            "assignees",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property(
+                        "assignments",
+                        th.ArrayType(
+                            th.ObjectType(
+                                th.Property("role", th.StringType),
+                            )
+                        ),
+                    ),
+                    th.Property("fullname", th.StringType),
+                    th.Property("userId", th.IntegerType),
+                )
+            ),
+        ),
+        th.Property("comments", th.StringType),
         th.Property("created", th.StringType),
         th.Property("currentStep", th.StringType),
         th.Property("editCount", th.IntegerType),
+        th.Property("eid", th.StringType),
         th.Property("groupID", th.IntegerType),
         th.Property("groupName", th.StringType),
+        th.Property("name", th.StringType),
         th.Property("profileID", th.StringType),
         th.Property("projectID", th.IntegerType),
         th.Property(
@@ -131,12 +149,12 @@ class EvaluationDetails(TapContentQuoStream):
     name = "evaluation_details"  # Stream name
     parent_stream_type = Evaluations
     path = "/evaluations/{eid}"  # API endpoint after base_url
-    primary_keys = ["id"]
+    primary_keys = ["eid"]
     records_jsonpath = "$"  # Use requests response JSON to identify the JSON path
     replication_key = None
 
     schema = th.PropertiesList(
-        th.Property("id", th.StringType),
+        th.Property("eid", th.StringType),
         th.Property("analyticalIssueCount", th.IntegerType),
         th.Property(
             "assignees",
@@ -201,10 +219,6 @@ class EvaluationDetails(TapContentQuoStream):
         th.Property("workflowName", th.StringType),
     ).to_dict()
 
-    def post_process(self, row: dict, context: Optional[dict]) -> dict:
-        row["eid"] = context["eid"]
-        return row
-
 
 class EvaluationIssues(TapContentQuoStream):
     name = "evaluation_issues"
@@ -215,30 +229,31 @@ class EvaluationIssues(TapContentQuoStream):
     replication_key = None
 
     schema = th.PropertiesList(
+        th.Property("categories", th.StringType),
+        th.Property("fileName", th.StringType),
         th.Property("id", th.StringType),
-        th.Property("issueType", th.StringType),
-        th.Property("description", th.StringType),
-        th.Property("createdDate", th.StringType),
+        th.Property("segmentId", th.StringType),
+        th.Property("severity", th.StringType),
+        th.Property("status", th.StringType),
     ).to_dict()
 
-    def post_process(self, row: dict, context: Optional[dict]) -> dict:
-        row["eid"] = context["eid"]
-        return row
+    def request_records(self, context: Optional[dict]) -> Iterable[dict]:
+        """Request records for the stream, ensuring valid authentication and skipping null issues."""
+        self.get_token()  # Ensure valid token before making requests
+        url = f"{self.url_base}{self.path.format(**context)}"
+        response = self.requests_session.get(url, headers=self.http_headers)
 
+        if response.status_code != 200:
+            raise FatalAPIError(
+                f"Failed to fetch data: {response.status_code} {response.text}"
+            )
 
-class EvaluationMetadata(TapContentQuoStream):
-    name = "evaluation_metadata"
-    parent_stream_type = Evaluations
-    path = "/evaluations/{eid}/metadata"
-    primary_keys = ["id"]
-    records_jsonpath = "$.metadata[*]"
-    replication_key = None
+        response_json = response.json()
 
-    schema = th.PropertiesList(
-        th.Property("id", th.StringType),
-        th.Property("key", th.StringType),
-        th.Property("value", th.StringType),
-    ).to_dict()
+        # Skip records where 'issues' is null
+        if response_json.get("issues") is not None:
+            for record in response_json["issues"]:
+                yield self.post_process(record, context)
 
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
         row["eid"] = context["eid"]
@@ -249,34 +264,17 @@ class EvaluationMetrics(TapContentQuoStream):
     name = "evaluation_metrics"
     parent_stream_type = Evaluations
     path = "/evaluations/{eid}/metrics"
-    primary_keys = ["id"]
-    records_jsonpath = "$.metrics[*]"
+    primary_keys = ["evaluationId"]
+    records_jsonpath = "$"
     replication_key = None
 
     schema = th.PropertiesList(
-        th.Property("id", th.StringType),
-        th.Property("metricName", th.StringType),
-        th.Property("metricValue", th.StringType),
-    ).to_dict()
-
-    def post_process(self, row: dict, context: Optional[dict]) -> dict:
-        row["eid"] = context["eid"]
-        return row
-
-
-class QualityProfiles(TapContentQuoStream):
-    name = "quality_profiles"
-    path = "/qualityProfiles"
-    primary_keys = ["id"]
-    records_jsonpath = "$.qualityProfiles[*]"
-    replication_key = None
-
-    schema = th.PropertiesList(
-        th.Property("id", th.StringType),
-        th.Property("name", th.StringType),
-        th.Property("description", th.StringType),
-        th.Property("createdDate", th.StringType),
-        th.Property("lastUpdatedDate", th.StringType),
+        th.Property("evaluationId", th.StringType),
+        th.Property("evaluationName", th.StringType),
+        th.Property("metrics", th.StringType),
+        th.Property("overallComment", th.StringType),
+        th.Property("qualityProfile", th.StringType),
+        th.Property("scope", th.StringType),
     ).to_dict()
 
 
@@ -284,34 +282,40 @@ class Users(TapContentQuoStream):
     name = "users"
     path = "/users"
     primary_keys = ["id"]
-    records_jsonpath = "$.users[*]"
+    records_jsonpath = "$[*]"
     replication_key = None
 
     schema = th.PropertiesList(
         th.Property("id", th.StringType),
         th.Property("username", th.StringType),
         th.Property("email", th.StringType),
-        th.Property("fullName", th.StringType),
+        th.Property("groupId", th.StringType),
     ).to_dict()
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {"id": record["id"]}
 
 
 class UserDetails(TapContentQuoStream):
     name = "user_details"
     parent_stream_type = Users
-    path = "/users/{uid}"
+    path = "/users/{id}"
     primary_keys = ["id"]
     records_jsonpath = "$"
     replication_key = None
 
     schema = th.PropertiesList(
         th.Property("id", th.StringType),
+        th.Property("groupId", th.StringType),
         th.Property("username", th.StringType),
         th.Property("email", th.StringType),
-        th.Property("fullName", th.StringType),
+        th.Property("firstname", th.StringType),
+        th.Property("lastname", th.StringType),
+        th.Property("fullname", th.StringType),
         th.Property("createdDate", th.StringType),
-        th.Property("lastLoginDate", th.StringType),
+        th.Property("login", th.StringType),
+        th.Property("role", th.StringType),
+        th.Property("status", th.StringType),
+        th.Property("languages", th.StringType),
     ).to_dict()
-
-    def post_process(self, row: dict, context: Optional[dict]) -> dict:
-        row["uid"] = context["uid"]
-        return row
