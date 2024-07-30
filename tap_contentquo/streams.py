@@ -22,7 +22,7 @@ class TapContentQuoStream(RESTStream):
     @property
     def url_base(self) -> str:
         """Base URL of source"""
-        return "https://degreed.contentquo.com/api/v1"
+        return self.config["api_base_url"]
 
     @property
     def http_headers(self) -> dict:
