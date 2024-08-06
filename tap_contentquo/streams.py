@@ -54,25 +54,16 @@ class TapContentQuoStream(RESTStream):
         return self.token
 
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
-        """Request records for the stream, ensuring valid authentication and skipping records with non-200 responses."""
+        """Request records for the stream, ensuring valid authentication."""
         self.get_token()  # Ensure valid token before making requests
+        try:
+            yield from super().request_records(context)
+        except FatalAPIError as e:
+            if "404 Client Error" in str(e):
+                self.logger.warn(f"Resource not found. Skipping.")
+            else:
+                raise
 
-        if context is None:
-            self.logger.error("Context is None, cannot format URL.")
-            return  # Skip processing
-
-        url = f"{self.url_base}{self.path.format(**context)}"
-        response = self.requests_session.get(url, headers=self.http_headers)
-
-        if response.status_code != 200:
-            self.logger.warn(f"Skipping record due to non-200 response: {response.status_code}")
-            return  # Skip this record
-
-        response_json = response.json()
-
-        if response_json.get("issues") is not None:
-            for record in response_json["issues"]:
-                yield self.post_process(record, context)
 
 class Evaluations(TapContentQuoStream):
     name = "evaluations"  # Stream name
@@ -247,19 +238,15 @@ class EvaluationIssues(TapContentQuoStream):
     ).to_dict()
 
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
-        """Request records for the stream, ensuring valid authentication and skipping records with non-200 responses."""
+        """Request records for the stream, ensuring valid authentication and skipping null issues."""
         self.get_token()  # Ensure valid token before making requests
-
-        if context is None:
-            self.logger.error("Context is None, cannot format URL.")
-            return  # Skip processing
-
         url = f"{self.url_base}{self.path.format(**context)}"
         response = self.requests_session.get(url, headers=self.http_headers)
 
         if response.status_code != 200:
-            self.logger.warn(f"Skipping record due to non-200 response: {response.status_code}")
-            return  # Skip this record
+            raise FatalAPIError(
+                f"Failed to fetch data: {response.status_code} {response.text}"
+            )
 
         response_json = response.json()
 
@@ -267,7 +254,7 @@ class EvaluationIssues(TapContentQuoStream):
         if response_json.get("issues") is not None:
             for record in response_json["issues"]:
                 yield self.post_process(record, context)
-    
+
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
         row["eid"] = context["eid"]
         return row
