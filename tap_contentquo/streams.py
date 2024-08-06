@@ -6,6 +6,7 @@ from singer_sdk.streams import RESTStream
 from singer_sdk.authenticators import SimpleAuthenticator
 from singer_sdk.exceptions import FatalAPIError
 import requests
+from requests.exceptions import HTTPError
 
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
@@ -241,19 +242,18 @@ class EvaluationIssues(TapContentQuoStream):
         """Request records for the stream, ensuring valid authentication and skipping null issues."""
         self.get_token()  # Ensure valid token before making requests
         url = f"{self.url_base}{self.path.format(**context)}"
-        response = self.requests_session.get(url, headers=self.http_headers)
+        try:
+            response = self.requests_session.get(url, headers=self.http_headers)
+            response.raise_for_status()  # Raise HTTPError for bad responses
+            response_json = response.json()
 
-        if response.status_code != 200:
-            raise FatalAPIError(
-                f"Failed to fetch data: {response.status_code} {response.text}"
-            )
-
-        response_json = response.json()
-
-        # Skip records where 'issues' is null
-        if response_json.get("issues") is not None:
-            for record in response_json["issues"]:
-                yield self.post_process(record, context)
+            # Skip records where 'issues' is null
+            if response_json.get("issues") is not None:
+                for record in response_json["issues"]:
+                    yield self.post_process(record, context)
+        except HTTPError as e:
+            self.logger.error(f"Error fetching data for URL {url}: {e}")
+            self.logger.error("Skipping problematic record and continuing with others.")
 
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
         row["eid"] = context["eid"]
