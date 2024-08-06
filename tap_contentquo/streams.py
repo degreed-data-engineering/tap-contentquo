@@ -56,15 +56,20 @@ class TapContentQuoStream(RESTStream):
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
         """Request records for the stream, ensuring valid authentication and skipping records with non-200 responses."""
         self.get_token()  # Ensure valid token before making requests
+
+        if context is None:
+            self.logger.error("Context is None, cannot format URL.")
+            return  # Skip processing
+
         url = f"{self.url_base}{self.path.format(**context)}"
         response = self.requests_session.get(url, headers=self.http_headers)
-    
+
         if response.status_code != 200:
             self.logger.warn(f"Skipping record due to non-200 response: {response.status_code}")
             return  # Skip this record
-    
+
         response_json = response.json()
-    
+
         if response_json.get("issues") is not None:
             for record in response_json["issues"]:
                 yield self.post_process(record, context)
@@ -244,6 +249,11 @@ class EvaluationIssues(TapContentQuoStream):
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
         """Request records for the stream, ensuring valid authentication and skipping records with non-200 responses."""
         self.get_token()  # Ensure valid token before making requests
+
+        if context is None:
+            self.logger.error("Context is None, cannot format URL.")
+            return  # Skip processing
+
         url = f"{self.url_base}{self.path.format(**context)}"
         response = self.requests_session.get(url, headers=self.http_headers)
 
