@@ -230,6 +230,7 @@ class EvaluationIssues(TapContentQuoStream):
     replication_key = None
 
     schema = th.PropertiesList(
+        th.Property("eid", th.StringType),
         th.Property("categories", th.StringType),
         th.Property("fileName", th.StringType),
         th.Property("id", th.StringType),
