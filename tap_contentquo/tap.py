@@ -17,12 +17,12 @@ from tap_contentquo.streams import (
 PLUGIN_NAME = "tap-contentquo"
 
 STREAM_TYPES = [
-    Evaluations,
-    EvaluationDetails,
-    EvaluationIssues,
-    EvaluationMetrics,
+    # Evaluations,
+    # EvaluationDetails,
+    # EvaluationIssues,
+    # EvaluationMetrics,
     Users,
-    UserDetails,
+    # UserDetails,
 ]
 
 
