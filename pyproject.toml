@@ -6,10 +6,10 @@ authors = ["Derek Visch <dvisch@autoidm.com>"]
 license = "Apache v2"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.9,<4.0"
 requests = "^2.32.4"
 # Update Singer SDK to the latest version with the [jwt] extra
-singer-sdk = { version = "^0.53.5", extras = ["jwt"] }
+singer-sdk = { version = "^0.34.0", extras = ["jwt"] }
 # Add the latest PyJWT
 pyjwt = "^2.11.0"
 
