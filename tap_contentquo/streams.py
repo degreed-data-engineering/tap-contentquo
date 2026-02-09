@@ -1,4 +1,7 @@
+import jwt
 import json
+import time
+
 from typing import Dict, Optional, Any, Iterable
 from pathlib import Path
 from singer_sdk import typing as th
@@ -48,10 +51,39 @@ class TapContentQuoStream(RESTStream):
                 f"Failed to authenticate. Status code: {response.status_code}. Response: {response.text}"
             )
 
-    def get_token(self) -> str:
-        """Get the current token, authenticate if necessary."""
-        if not self.token:
+    def refresh_token(self):
+        """Refresh the current token using the refresh endpoint."""
+        refresh_url = f"{self.url_base}/auth/refresh"
+        refresh_payload = {"token": self.token}
+
+        response = requests.post(refresh_url, json=refresh_payload)
+        if response.status_code == 200:
+            self.token = response.json().get("token")
+        else:
+            # If refresh fails, do full authentication
             self.authenticate()
+
+    def is_token_expiring(self) -> bool:
+        """Check if token expires within 5 minutes."""
+        if not self.token:
+            return True
+
+        try:
+            decoded = jwt.decode(self.token, options={"verify_signature": False})
+            exp_time = decoded.get("exp")
+            if exp_time:
+                return (exp_time - time.time()) <= 300  # 5 minutes
+        except:
+            pass
+        return True  # If we can't decode, assume it's expiring
+
+    def get_token(self) -> str:
+        """Get the current token, refreshing if necessary."""
+        if not self.token or self.is_token_expiring():
+            if self.token:
+                self.refresh_token()
+            else:
+                self.authenticate()
         return self.token
 
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
